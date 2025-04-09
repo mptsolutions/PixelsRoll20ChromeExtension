@@ -1,0 +1,9 @@
+{
+   "message": {
+      "name": "Generic Roll",
+      "advDisadvantage": false,
+      "sumRolls": false,
+      "formula": "[#face_value](#\" style=\"color:red;font-size:30px;font-weight:bold)"
+   },
+   "credit": "Mike"
+}

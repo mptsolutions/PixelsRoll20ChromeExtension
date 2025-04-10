@@ -118,7 +118,7 @@ function initSelectFromStorage(storageName, defaultValue) {
 
 async function fetchJSONMessageTypes() {
   try {
-    const response = await fetch('messageTypes/index.json');
+    const response = await fetch('../messageTypes/index.json');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -126,7 +126,7 @@ async function fetchJSONMessageTypes() {
     const jsonMessageTypes = [];
 
     for (const file of rollFiles) {
-      const response = await fetch(`messageTypes/${file}`);
+      const response = await fetch(`../messageTypes/${file}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -319,7 +319,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // We need to be running in the webpage context to have access to the bluetooth stack
 chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
   chrome.scripting.executeScript(
-    { target: { tabId: tabs[0].id }, files: ["roll20.js"] },
+    { target: { tabId: tabs[0].id }, files: ["/js/roll20.js"] },
     _ => {
       sendMessage({ action: "getStatus" });
       // Always send the current formula displayed in the text box

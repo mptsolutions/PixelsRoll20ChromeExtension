@@ -2,7 +2,7 @@
   "name": "Pixels on Roll20",
   "version": "0.3",
   "description": "Bring the magic of Pixels into Roll20!",
-  "permissions": ["activeTab", "storage", "declarativeContent"],
+  "permissions": ["activeTab", "storage", "declarativeContent", "scripting"],
   "background": {
     "service_worker": "background.js"
   },

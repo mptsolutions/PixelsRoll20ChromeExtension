@@ -318,9 +318,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Inject code in website
 // We need to be running in the webpage context to have access to the bluetooth stack
 chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-  chrome.tabs.executeScript(
-    tabs[0].id,
-    { file: "roll20.js" },
+  chrome.scripting.executeScript(
+    { target: { tabId: tabs[0].id }, files: ["roll20.js"] },
     _ => {
       sendMessage({ action: "getStatus" });
       // Always send the current formula displayed in the text box

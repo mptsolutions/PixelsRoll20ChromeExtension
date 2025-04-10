@@ -4,10 +4,10 @@
   "description": "Bring the magic of Pixels into Roll20!",
   "permissions": ["activeTab", "storage", "declarativeContent", "scripting"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "/js/background.js"
   },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "/html/popup.html",
     "default_icon": {
       "64": "images/logo-64.png"
     }
@@ -15,12 +15,12 @@
   "icons": {
     "64": "images/logo-64.png"
   },
-  "options_page": "options.html",
+  "options_page": "/html/options.html",
   "manifest_version": 3,
   "content_scripts": [
     {
-      "css":["jquery-ui.css"],
-      "js":["jquery-ui.min.js"],
+      "css":["/css/jquery-ui.css"],
+      "js":["/js/jquery-ui.min.js"],
       "matches": ["*://*/*"],
       "run_at": "document_end"
     }

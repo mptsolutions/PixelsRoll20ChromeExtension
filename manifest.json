@@ -1,13 +1,12 @@
 {
   "name": "Pixels on Roll20",
-  "version": "0.2",
+  "version": "0.3",
   "description": "Bring the magic of Pixels into Roll20!",
-  "permissions": ["activeTab", "declarativeContent", "storage"],
+  "permissions": ["activeTab", "storage", "declarativeContent"],
   "background": {
-    "scripts": ["background.js"],
-    "persistent": false
+    "service_worker": "background.js"
   },
-  "page_action": {
+  "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "64": "images/logo-64.png"
@@ -17,7 +16,13 @@
     "64": "images/logo-64.png"
   },
   "options_page": "options.html",
-  "manifest_version": 2,
-  "content_security_policy": "script-src 'self' https://code.jquery.com; object-src 'self'"
-  
+  "manifest_version": 3,
+  "content_scripts": [
+    {
+      "css":["jquery-ui.css"],
+      "js":["jquery-ui.min.js"],
+      "matches": ["*://*/*"],
+      "run_at": "document_end"
+    }
+  ]
 }

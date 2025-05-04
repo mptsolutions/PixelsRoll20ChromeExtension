@@ -167,6 +167,7 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
             pixels.forEach(pixel => {
                 if (pixel.enabled) {
                     msg[msg.length] = pixel.lastFaceUp.toString();
+                    pixel.status = "ready";
                 }
             });
             const msgString = "ROLLED: " + msg.join(' + ');

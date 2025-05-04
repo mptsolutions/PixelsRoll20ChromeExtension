@@ -1,146 +1,167 @@
 'use strict';
 
+/* 
+ * Roll20Pixels Chrome Extension
+ * This file contains the code that is injected into the Roll20 page.
+ */
+
+
+/* 
+ * Only run this code if the Roll20Pixels extension is not already loaded.
+ */
 if (typeof window.roll20PixelsLoaded == 'undefined') {
     var roll20PixelsLoaded = true;
 
-    //
-    // Helpers
-    //
+    /* 
+     * Setting 'debug' to true will enable debug messages in the console
+     */
+    const debug = true;
 
-    let log = console.log;
+    logger("Roll20Pixels started");
 
-    function getArrayFirstElement(array) {
-        return typeof array == "undefined" ? undefined : array[0];
-    }
-
-    // Chat on Roll20
-    function postChatMessage(message) {
-        log("Posting message on Roll20: " + message);
-
-        const chat = document.getElementById("textchat-input");
-        const txt = getArrayFirstElement(chat?.getElementsByTagName("textarea"));
-        const btn = getArrayFirstElement(chat?.getElementsByTagName("button"));
-
-        if ((typeof txt == "undefined") || (typeof btn == "undefined")) {
-            log("Couldn't find Roll20 chat textarea and/or button");
-        }
-        else {
-            const current_msg = txt.value;
-            txt.value = message;
-            btn.click();
-            txt.value = current_msg;
-        }
-    }
-
-    //
-    // Pixels bluetooth discovery
-    //
-
+    /* 
+     * Setup parameters for the Bluetooth connection.
+     * This is used to filter the devices that are shown in the Bluetooth connection window.
+     */
     const PIXELS_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
     const PIXELS_NOTIFY_CHARACTERISTIC = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
-    const PIXELS_WRITE_CHARACTERISTIC = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
+    // const PIXELS_WRITE_CHARACTERISTIC = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
+    const deviceSetup = { filters: [{ services: [PIXELS_SERVICE_UUID] }] };
+    const maxConnectionAttempts = 3;
 
+    /*
+     * Create array to store the connected dice.
+     * Each die is represented by a Pixel object.
+     */
+    var pixels = [];
+
+    /* 
+     * Helper function to create consistently formated debug messages.
+     */
+    function logger(msg) { 
+        if (!debug) { return; }
+        const date = new Date();
+        const timestamp = date.toISOString().replace(/T/, ' ').replace(/\..+/, '');
+        console.log(`[${timestamp}] ${msg}`);
+    }
+
+    /*
+     * Generic function to send messages to the popup script (/js/popup.js).
+     * This is used by all functions that need to communicate with the popup.
+     * Chrome runtime errors are silently ignored.
+     * This is done to avoid breaking the extension if the popup is closed.
+     */
+    function sendMessageToExtension(data) {
+        chrome.runtime.sendMessage(data, _ => { if (chrome.runtime.lastError) { } });
+        logger("Message sent to extension: " + JSON.stringify(data));
+    }
+
+    /* 
+     * Function to send message with updated status for all dice.
+     * This ensure the popup only gets an update for dice that are enabled.
+     */
+    function updateDiceStatus() {
+        pixels.forEach(pixel => {
+            let faceValue = pixel.lastFaceUp + 1;
+            if (!pixel.enabled) { pixel.status = "disabled"; faceValue = 'N/A'; }
+            else if (pixel.isRolling) { pixel.status = "rolling"; }
+            else if (pixel.status != "rolled") { pixel.status = "ready"; }
+            sendMessageToExtension({ action: "updateDiceData", diceName: pixel.name, faceValue: faceValue, status: pixel.status });
+        });
+    }
+
+    /* 
+     * Function to send message with all dice info to the popup.
+     * This is used by the popup to create the list of connected dice.
+     */
+    function sendDiceToExtension() {
+        pixels.forEach(pixel => { if (!pixel.enabled) { pixel.status = "disabled"; } });
+        sendMessageToExtension({ action: "showDice", dice: pixels.map(pixel => ({ name: pixel.name, token: pixel.token, status: pixel.status })) });
+        updateDiceStatus();
+    }
+
+    /* 
+     * Function to connect a Pixel via Bluetooth.
+     * This is run when the user clicks the "Connect" button in the popup.
+     * The function will show the Bluetooth connection window and allow the user to select a Pixel.
+     */
     async function connectToPixel() {
-        const options = { filters: [{ services: [PIXELS_SERVICE_UUID] }] };
-        log('Requesting Bluetooth Device with ' + JSON.stringify(options));
-
+        logger('Requesting Bluetooth device...');
         try {
-            const device = await navigator.bluetooth.requestDevice(options);
-            log('User selected Pixel "' + device.name + '", connected=' + device.gatt.connected);
-
-            // Check if the device is already connected
+            const device = await navigator.bluetooth.requestDevice(deviceSetup);
             if (pixels.some(pixel => pixel.name === device.name)) {
-                log('Pixel "' + device.name + '" is already connected.');
+                logger('Pixel "' + device.name + '" already connected.');
                 return;
             }
 
             let server, notify;
             const connect = async () => {
-                console.log('Connecting to ' + device.name);
+                logger('Connecting to Pixel: ' + device.name);
                 server = await device.gatt.connect();
                 const service = await server.getPrimaryService(PIXELS_SERVICE_UUID);
                 notify = await service.getCharacteristic(PIXELS_NOTIFY_CHARACTERISTIC);
             };
 
-            // Attempt to connect up to 3 times
-            const maxAttempts = 3;
-            for (let i = maxAttempts - 1; i >= 0; --i) {
+            for (let i = maxConnectionAttempts - 1; i >= 0; --i) {
                 try {
                     await connect();
                     break;
                 } catch (error) {
-                    log('Error connecting to Pixel: ' + error);
+                    logger('Pixel connection error: ' + error);
                     if (i) {
                         const delay = 2;
-                        log('Trying again in ' + delay + ' seconds...');
+                        logger('Try again in ' + delay + ' seconds');
                         await new Promise((resolve) => setTimeout(() => resolve(), delay * 1000));
                     }
                 }
             }
 
-            // Subscribe to notify characteristic
             if (server && notify) {
                 try {
+                    logger('Starting Pixel notifications');
                     const pixel = new Pixel(device.name, server);
                     await notify.startNotifications();
-                    log('Pixels notifications started!');
                     notify.addEventListener('characteristicvaluechanged', ev => pixel.handleNotifications(ev));
                     pixels.push(pixel);
                 } catch (error) {
-                    log('Error connecting to Pixel notifications: ' + error);
+                    logger('Pixel notifications connection error: ' + error);
                     await delay(1000);
                 }
                 sendDiceToExtension();
             }
         } catch (error) {
-            log('Error requesting Bluetooth device: ' + error);
+            logger('Bluetooth device error: ' + error);
         }
+        logger('Bluetooth device setup completed');
     }
 
-    //
-    // Holds a bluetooth connection to a pixel dice
-    //
+    /* 
+     * Pixel class to represent a connected Pixel.
+     */
     class Pixel {
         constructor(name, server) {
             this._name = name;
             this._server = server;
             this._hasMoved = false;
-            this._status = 'Ready';
+            this._status = 'disabled';
             this._token = `#${name.replace(/\s+/g, '_').toLowerCase()}`;
+            this._enabled = false;
         }
 
-        get isConnected() {
-            return this._server != null;
-        }
-
-        get name() {
-            return this._name;
-        }
-
-        isRolling = () => this._hasMoved;
-
-        get lastFaceUp() {
-            return this._face;
-        }
-
-        get token() {
-            return this._token;
-        }
-
-        /**
-         * @param {string} value
-         */
-        set status(value) {
-            this._status = value;
-        }
-
-        get status() {
-            return this._status;
-        }
+        get isConnected() { return this._server != null; }
+        get name() { return this._name; }
+        get isRolling() { return this._hasMoved };
+        get lastFaceUp() { return this._face; }
+        get token() { return this._token; }
+        get status() { return this._status; }
+        set status(value) { this._status = value; }
+        get enabled() { return this._enabled; }
+        set enabled(value) { this._enabled = value; }
 
         disconnect() {
             this._server?.disconnect();
             this._server = null;
+            logger('Pixel "' + this._name + '" disconnected.');
         }
 
         handleNotifications(event) {
@@ -154,228 +175,60 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
                 this._handleFaceEvent(value.getUint8(1), value.getUint8(2))
             }
         }
-    
-        _handleFaceEvent(ev, face) {
-            if (!this._hasMoved) {
-                if (ev != 1) {
-                    this._hasMoved = true;
-                    this._status = "Rolling";
-                }
-            }
-            else if (ev == 1) {
-                this._face = face;
+
+        _handleFaceEvent(eventId, face) {
+            this._face = face;
+            if (eventId == 1) {
                 this._hasMoved = false;
-                this._status = "Rolled";
-                onRoll(this, face+1, "Rolled");
-                return;
+                this._status = "rolled";
             }
-            sendDiceDataToExtension(this.name, face + 1, this.status);
-        }
-    }
-
-    var rolls = [];
-    var allDiceRolled = false;
-    var rollset = [];
-    var advRolls1 = [];
-    var advRolls2 = [];
-
-    function isDiceIncludedInRollset(pixel) {
-        return pixelsFormula.includes("#face_value") || pixelsFormula.includes(pixel.token);
-    }
-
-    function updateRollset() {
-        rollset = pixels.filter(pixel => isDiceIncludedInRollset(pixel));
-        log("Updated Rollset: " + rollset.map(pixel => pixel.name).join(", "));
-        updateDiceStatus();
-    }
-
-    const onRoll = (pixel, face, state) => {
-        if (!isDiceIncludedInRollset(pixel)) {
-            return;
-        }
-        const index = rollset.indexOf(pixel);
-        if (index >= 0) {
-            rolls[index] = state === "Rolled" ? face : 0;
-            const validRollsCount = rollset.filter(pixel => rolls[rollset.indexOf(pixel)]).length;
-            log(`${pixel.name} => ${pixel.status} ${face} (${validRollsCount}/${rollset.length})`);
-            allDiceRolled = rollset.length === validRollsCount;
-
-            if (allDiceRolled) {
-                processRollResults();
+            else if (eventId == 3 && !this._hasMoved) {
+                this._hasMoved = true;
+                this._status = "rolling";
+            } 
+            else if (eventId == 5) {
+                this._hasMoved = false;
+                this._status = "forced";
             }
-            else {
-                updateDiceStatus();
+            if (this._enabled) {
+                sendMessageToExtension({ action: "updateDiceData", diceName: this.name, faceValue: face+1, status: this.status });
             }
-        } else {
-            console.error(`Got rolled on unknown die: ${pixel.name}`);
         }
-    };
-
-    function updateDiceStatus(dice, status) {
-        (dice === undefined ? pixels : dice).forEach(pixel => {
-            if(status === undefined){
-                if (rollset.includes(pixel)) {
-                    if (pixel.isRolling()) {
-                        pixel.status = "Rolling";
-                    }
-                    else if (allDiceRolled) {
-                        pixel.status = "Stand By";
-                    }
-                    else if (pixel.status != "Rolled") {
-                        pixel.status = "Needs Roll";
-                    }
-                }
-                else {
-                    pixel.status = "Excluded";
-                }
-            }                        
-            else {
-                pixel.status = status;
-            }
-
-            sendDiceDataToExtension(pixel.name, pixel.lastFaceUp + 1, pixel.status);
-        });
     }
 
-    function sendDiceDataToExtension(name, faceValue, status) {
-        sendMessageToExtension({ action: "updateDiceData", diceName: name, faceValue: faceValue, status: status });
-    }
-
-    function processRollResults() {
-        if (pixelsAdvDisadvantage && pixelsSumRolls) {
-            handleAdvDisadvantage();
-            return;
-        } else if (pixelsSumRolls) {
-            const combinedMessage = formatCombinedMessage(rollset);
-            log(combinedMessage);
-            combinedMessage.split("\\n").forEach(s => postChatMessage(s));
-        } else if (pixelsAdvDisadvantage) {
-            const individualMessages = pixels.map(pixel => formatMessage(pixel, pixel.lastFaceUp));
-            individualMessages.forEach(message => {
-                log(message);
-                message.split("\\n").forEach(s => postChatMessage(s));
-            });
-        } else {
-            const message = formatCombinedMessage(rollset);
-            log(message);
-            message.split("\\n").forEach(s => postChatMessage(s));
-        }
-        updateDiceStatus();
-        allDiceRolled = false;
-        rolls = [];
-    }
-
-    function handleAdvDisadvantage() {
-
-        if (advRolls1.length === 0) {
-            advRolls1.push(...rolls);
-            allDiceRolled = false;
-            rolls = [];
-            updateDiceStatus(rollset, "Roll Again");
-        }
-        else {
-            advRolls2.push(...rolls);
-            updateDiceStatus();
-
-            // Send both results to chat
-            const firstMessage = formatCombinedMessageWithRolls(rollset, advRolls1);
-            const secondMessage = formatCombinedMessageWithRolls(rollset, advRolls2);
-            log(firstMessage);
-            log(secondMessage);
-            firstMessage.split("\\n").forEach(s => postChatMessage(s));
-            secondMessage.split("\\n").forEach(s => postChatMessage(s));
-
-            allDiceRolled = false;
-            rolls = [];
-            advRolls1 = [];
-            advRolls2 = [];
-
-        }
-        
-    }
-
-    function formatCombinedMessageWithRolls(dice, rolls) {
-        const totalFaceValue = rolls.reduce((sum, face) => sum + face, 0);
-        const names = dice.map(pixel => pixel.name).join(", ");
-        let message = pixelsFormula.replaceAll("#face_value", totalFaceValue)
-                             .replaceAll("#pixel_name", names);
-        dice.forEach((pixel, index) => {
-            message = message.replaceAll(pixel.token, rolls[index]);
-        });
-        return message;
-    }
-
-    //
-    // Communicate with extension
-    //
-
-    function sendMessageToExtension(data) {
-        chrome.runtime.sendMessage(data);
-    }
-
-    function sendDiceToExtension() {
-        sendMessageToExtension({ action: "showDice", dice: pixels.map(pixel => ({ name: pixel.name, token: pixel.token, status: pixel.status })) });
-        updateRollset();
-    }
-
-    function formatMessage(dice, face) {
-        return pixelsFormula.replaceAll("#face_value", face)
-                      .replaceAll("#pixel_name", dice.name)
-                      .replaceAll(dice.token, face);
-    }
-
-    function formatCombinedMessage(dice) {
-        const totalFaceValue = pixelsSumRolls ? dice.reduce((sum, pixel) => sum + (pixel.lastFaceUp + 1), 0) : dice.map(pixel => pixel.lastFaceUp + 1).join(", ");
-        const names = dice.map(pixel => pixel.name).join(", ");
-        let message = pixelsFormula.replaceAll("#face_value", totalFaceValue)
-                             .replaceAll("#pixel_name", names);
-        dice.forEach((pixel, index) => {
-            message = message.replaceAll(pixel.token, rolls[index]);
-        });
-        return message;
-    }
-
-    log("Starting Pixels Roll20 extension");
-
-    var pixels = [];
-    var pixelsFormula = "";
-    var pixelsMessageType = "custom";
-    var pixelsAdvDisadvantage = false;
-    var pixelsSumRolls = false;
-
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-        log("Received message from extension: " + msg.action);
-        if (msg.action == "getStatus") {
-            sendDiceToExtension();
-        }
-        else if (msg.action == "setFormula") {
-            pixelsFormula = msg.formula; // Update the formula
-            pixelsAdvDisadvantage = msg.advDisadvantage;
-            pixelsSumRolls = msg.sumRolls;
-            log("Updated Roll20 formula: " + pixelsFormula + (pixelsAdvDisadvantage ? ", Adv/Disadvantage" : "") + (pixelsSumRolls ? ", Sum Rolls" : ""));
-            sendDiceToExtension();
-        }
-        else if (msg.action == "setChecked") {
-            pixelsAdvDisadvantage = msg.advDisadvantage;
-            pixelsSumRolls = msg.sumRolls;
-            log("Updated Roll20 Flags: " + (pixelsAdvDisadvantage ? "Adv/Disadvantage" : "") + (pixelsSumRolls ? " Sum Rolls" : ""));
-        }
-        else if (msg.action == "connect") {
-            log("connect");
+    /* 
+     * Create listener for messages from the popup window.
+     */
+    chrome.runtime.onMessage.addListener((msg, _, __) => {
+        logger("Message received from extension: " + JSON.stringify(msg));
+        if (msg.action == "connect") { 
             connectToPixel();
         }
-        else if (msg.action == "disconnectDice") {
-            log("disconnectDice");
+        else if (msg.action == "disconnectDie") {
             pixels.find(pixel => pixel.name === msg.name)?.disconnect();
             pixels = pixels.filter(pixel => pixel.name !== msg.name);
             sendDiceToExtension();
         }
-        else if (msg.action == "disconnect") {
-            log("Disconnect All");
+        else if (msg.action == "disconnectAll") {
             pixels.forEach(pixel => pixel.disconnect());
             pixels = [];
             sendDiceToExtension();
         }
+        else if (msg.action == "getStatus") { 
+            sendDiceToExtension();
+        }
+        else if (msg.action == "updateDieStatus") {
+            const pixel = pixels.find(pixel => pixel.name === msg.name);
+            if (pixel) { 
+                pixel.status = msg.status;
+                pixel.enabled = true;
+                if (msg.status == "disabled") { pixel.enabled = false; }
+            }
+        }
     });
+
+    /* 
+     * Send message to the popup with the list of connected dice.
+     */
     sendDiceToExtension();
 }

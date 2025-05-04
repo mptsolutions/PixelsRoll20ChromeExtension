@@ -62,7 +62,7 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
      */
     function updateDiceStatus() {
         pixels.forEach(pixel => {
-            let faceValue = pixel.lastFaceUp + 1;
+            let faceValue = pixel.lastFaceUp;
             if (!pixel.enabled) { pixel.status = "disabled"; faceValue = 'N/A'; }
             else if (pixel.isRolling) { pixel.status = "rolling"; }
             else if (pixel.status != "rolled") { pixel.status = "ready"; }
@@ -136,6 +136,48 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
     }
 
     /* 
+     * Function to post a chat message.
+     * This is run when all dice have a status of 'rolled'.
+     */
+    function postChatMessage(message) {
+        try {
+            const chatArea = document.getElementById("textchat-input");
+            const chatText = chatArea?.getElementsByTagName("textarea")[0];
+            const submitBtn = chatArea?.getElementsByTagName("button")[0];
+            const current_msg = chatText.value;
+            chatText.value = message;
+            submitBtn.click();
+            chatText.value = current_msg;
+        }
+        catch (_) {
+            logger("Unable to find Roll20 chat textarea and/or button");
+        }
+        logger("Posted chat message: " + message);
+    }
+
+    /* 
+     * Function to identify when all enabled dice have been rolled.
+     * This is run when any die has a status of 'rolled'.
+     * The function will verify that all enabled dice have been rolled and call the postChatMessage() function.
+     */
+    const dieRolled = () => {
+        let allDiceRolled = pixels.every(pixel => pixel.enabled && pixel.status == "rolled");
+        if (allDiceRolled) { 
+            let msg = [];
+            pixels.forEach(pixel => {
+                if (pixel.enabled) {
+                    msg[msg.length] = pixel.lastFaceUp.toString();
+                }
+            });
+            const msgString = "ROLLED: " + msg.join(' + ');
+            postChatMessage(msgString);
+        }
+        else { 
+            updateDiceStatus(); 
+        }
+    };
+
+    /* 
      * Pixel class to represent a connected Pixel.
      */
     class Pixel {
@@ -177,10 +219,11 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         }
 
         _handleFaceEvent(eventId, face) {
-            this._face = face;
+            this._face = face + 1;
             if (eventId == 1) {
                 this._hasMoved = false;
                 this._status = "rolled";
+                dieRolled();
             }
             else if (eventId == 3 && !this._hasMoved) {
                 this._hasMoved = true;
@@ -191,7 +234,7 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
                 this._status = "forced";
             }
             if (this._enabled) {
-                sendMessageToExtension({ action: "updateDiceData", diceName: this.name, faceValue: face+1, status: this.status });
+                sendMessageToExtension({ action: "updateDiceData", diceName: this.name, faceValue: this._face, status: this.status });
             }
         }
     }

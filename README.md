@@ -1,6 +1,6 @@
 # Roll20Pixels
 
-This is a Chrome extension that provides a simple interface for connecting [Pixels](https://gamewithpixels.com/) to the [Roll20](https://roll20.net/) website. It enables automatic posting or rolls to the game chat. 
+This is a Chrome extension that provides a simple interface for connecting [Pixels](https://gamewithpixels.com/) to the [Roll20](https://roll20.net/) website. It enables automatic posting of rolls to the game chat. 
 
 The code is based on the proof-of-concept extension [PixelsRoll20ChromeExtension](https://github.com/Parashoot/PixelsRoll20ChromeExtension).
 
@@ -22,11 +22,11 @@ Pixels are user-customizable dice containing LEDs. They can be programmed and in
 3. Click the pin icon next to Roll20Pixels extension.
    * This will pin the Roll20Pixels icon <img src="images/d20.png" width="16"/> to the address bar.
 4. Click the Roll20Pixels icon <img src="images/d20.png" width="16"/> to open the Pixel connection window.
-   * The Pixel connection window will open be displayed if the Roll20 page is in the active broswer tab.
+   * The Pixel connection window will only be displayed if the Roll20 page is in the active broswer tab.
 5. Click the Connect button and select a Pixel. Once connected, the Pixel will be listed in the connection window.
    * Continue for each Pixel.
 6. Click the checkbox to enable / disable each Pixel that should be included in rolls.
 
 ## Notes
    * Connections are lost when the Roll20 page is reloaded.
-   * When the Pixel connections window disappears, the last selected Pizel will continue to be rolled. The window will remember which Pixels are connected and enabled when it is openned again as longas the Roll20 page has not been reloaded.
+   * When the Pixel connections window disappears, the previously selected Pixels will continue to be rolled. The window will remember which Pixels are connected and enabled when it is openned again as long as the Roll20 page has not been reloaded.

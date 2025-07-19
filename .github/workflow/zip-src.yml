@@ -1,0 +1,27 @@
+name: Zip src as Roll20Pixels
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  zip-src:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Roll20Pixels directory and copy src contents
+        run: |
+          mkdir Roll20Pixels
+          cp -r src/* Roll20Pixels/
+
+      - name: Zip Roll20Pixels directory
+        run: |
+          zip -r Roll20Pixels.zip Roll20Pixels
+
+      - name: Upload zip as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roll20Pixels.zip
+          path: Roll20Pixels.zip

@@ -1,49 +1,33 @@
-# Pixels on Roll20
+# Roll20Pixels
 
-Proof of concept of a Chrome extension that sends Pixels dice roll results
-to the Roll20 chat.
+<img src="ui.png" align="right" width="270"/>
 
-| :exclamation: :exclamation: :exclamation: This an experimental project, not an official product. :exclamation: :exclamation: :exclamation: |
-|--------------------------------------------------------------------------------------------------------------------------------------------|
+This is a Chrome extension that provides a simple interface for connecting [Pixels](https://gamewithpixels.com/) to the [Roll20](https://roll20.net/) website. It enables automatic posting of rolls to the game chat. 
 
-The scope of this extension is very limited and you should expect to encounter
-issues :)
+The code is based on the proof-of-concept extension [PixelsRoll20ChromeExtension](https://github.com/Parashoot/PixelsRoll20ChromeExtension).
 
-## Foreword
+## What is a Pixel?
 
-Pixels are full of LEDs, smarts and no larger than regular dice, they can be
-customized to light up when and how you desire.
-Check our [website](https://gamewithpixels.com/) for more information.
+Pixels are user-customizable dice containing LEDs. They can be programmed and interacted with using Bluetooth. See the [Game with Pixels](https://gamewithpixels.com/) website or the [API documentation](https://github.com/GameWithPixels/.github/blob/main/doc/DevelopersGuide.md) for more information.
 
-> **Warning**
-> Before jumping into programming please make sure to read our Pixels developer's
-> [guide](https://github.com/GameWithPixels/.github/blob/main/doc/DevelopersGuide.md).
+## Install the extension
 
-## How To Install
-
-1. Download the content of this repository (*).
-2. Open Chrome extension manager.
-3. If you have downloaded this repository as a zip file then unzip it.
-4. Select "Load Unpacked", browse to the folder where you downloaded the extension.
+1. Download the [extension files](https://github.com/mptsolutions/PixelsRoll20ChromeExtension/Roll20Pixels.zip).
+2. Extract the extension files to a convenient folder.
+3. Open the [Chrome extension manager](chrome://extensions/) and enable Developer Mode.
+4. Click the "Load Unpacked" button and select the folder you extracted the extension to.
 
 ## How To Use
 
-1. Open a game on Roll20's [website](https://roll20.net/).
-2. Click on the extension icon (it looks like a puzzle piece) on the right side
-   of Chrome's address bar.
-3. Select the "Pixels on Roll20" extension.
-3. Select a Pixels die to connect to.
-4. After a few seconds the die should be connected and your rolls will appear
-   in the chat!
+1. Join a game on [Roll20](https://roll20.net/).
+2. Click on the Extensions icon in Chrome's address bar.
+3. Click the pin icon next to Roll20Pixels extension.
+   * This will pin the Roll20Pixels icon <img src="src/images/d20.png" width="16"/> to the address bar.
+4. Click the Roll20Pixels icon <img src="src/images/d20.png" width="16"/> to open the Pixel connection window.
+   * The Pixel connection window float in the main Roll20 game space. It can be moved around anywhere on the page.
+5. Click the Connect button and select a Pixel. Once connected, the Pixel will be listed in the connection window.
+   * Continue for each Pixel.
+6. Click the checkbox to enable / disable each Pixel that should be included in rolls.
 
-You may connect to more than one die a time.
-To edit the roll formula, re-open the extension and change the text of the macro.
-
-If you're having problems, have a look at the DevTools Console by pressing F12
-and selecting the Console tab in the DevTools window.
-
-Please open a [ticket](
-    https://github.com/GameWithPixels/PixelsRoll20ChromeExtension/issues
-) on GitHub if you're having any issue.
-
-*Note:* Connections are lost upon reloading the page.
+## Notes
+   * Connections are lost when the Roll20 page is reloaded.

@@ -12,7 +12,7 @@ Pixels are user-customizable dice containing LEDs. They can be programmed and in
 
 ## Install the extension
 
-1. Download the [extension files](https://github.com/mptsolutions/PixelsRoll20ChromeExtension/Roll20Pixels.zip).
+1. Download the [extension files](https://github.com/mptsolutions/PixelsRoll20ChromeExtension/raw/refs/heads/main/Roll20Pixels.zip).
 2. Extract the extension files to a convenient folder.
 3. Open the [Chrome extension manager](chrome://extensions/) and enable Developer Mode.
 4. Click the "Load Unpacked" button and select the folder you extracted the extension to.

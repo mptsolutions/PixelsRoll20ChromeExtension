@@ -1,0 +1,90 @@
+/* 
+ * Roll20Pixels Chrome Extension
+ * This file contains the CSS for the floating dialog.
+ */
+
+.pixelsFrame {
+    width: 250px;
+    text-align: center;
+    background-color: #222;
+    margin: auto;
+    padding: 5px 0px 5px 0px;
+    position:fixed; 
+    top:600px; 
+    left:600px; 
+    z-index:9999; 
+    border:3px solid #4CAF50;
+    border-radius: 15px;
+    cursor:move;
+}
+
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+    text-shadow: 0px 0px 8px #4CAF50;
+    padding: 0px 0px 0px 0px;
+    margin: 0px 0px 0px 0px;
+}
+
+button {
+    outline-width: 1px;
+    outline-style: solid;
+    outline-color: #4CAF50;
+}
+
+.connectButtons {
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-bottom: 2px;
+    display: inline-block;
+    border: none;
+    border-radius: 10px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    float: none;
+    background-color: black;
+    color: #4CAF50;
+}
+
+.connectButtons span {
+    margin-right: 8px;
+    vertical-align: 1px;
+    display: inline;
+    float: none;
+}
+
+.connectButtons:hover {
+    background-color: #2a2a2a;
+}
+
+.connectedDiceSmall {
+    margin-top: 2px;
+    display: inline-block;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 5px;
+    cursor: pointer;
+    font-size: 8px;
+    float: none;
+    background-color: #000000;
+    color: #4CAF50;
+}
+
+.connectedDiceSmall:hover {
+    background-color: #2a2a2a;
+}
+
+.dice {
+    color: #4CAF50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 95%;
+    margin: 2px 2px 2px 2px;
+    padding: 2px 5px;
+    border: solid 1px #4CAF50;
+    border-radius: 5px;
+    background-color: #000000;
+}

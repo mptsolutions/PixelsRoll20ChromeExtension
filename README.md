@@ -1,4 +1,4 @@
-# Roll20Pixels
+# Roll20Pixels <img src="src/images/d20.png" width="20"/>
 
 <img src="ui.png" align="right" width="270"/>
 
@@ -24,7 +24,7 @@ Pixels are user-customizable dice containing LEDs. They can be programmed and in
 3. Click the pin icon next to Roll20Pixels extension.
    * This will pin the Roll20Pixels icon <img src="src/images/d20.png" width="16"/> to the address bar.
 4. Click the Roll20Pixels icon <img src="src/images/d20.png" width="16"/> to open the Pixel connection window.
-   * The Pixel connection window float in the main Roll20 game space. It can be moved around anywhere on the page.
+   * The Pixel connection window floats in the main Roll20 game space. It can be moved around anywhere on the page.
 5. Click the Connect button and select a Pixel. Once connected, the Pixel will be listed in the connection window.
    * Continue for each Pixel.
 6. Click the checkbox to enable / disable each Pixel that should be included in rolls.

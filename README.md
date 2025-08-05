@@ -29,6 +29,10 @@ Pixels are user-customizable dice containing LEDs. They can be programmed and in
 5. Click the Connect button and select a Pixel. Once connected, the Pixel will be listed in the connection window.
    * Continue for each Pixel.
 6. Click the checkbox to enable / disable each Pixel that should be included in rolls.
+7. Click the <i>Show Message Editor</i> button in the top right corner to change the message that is posted.
+   * The chat message will respect the [Roll20 text chat markup](https://wiki.roll20.net/Text_Chat).
+   * ```%FACE%``` will be replaced with roll value.
 
 ## Notes
    * Connections are lost when the Roll20 page is reloaded.
+   * Multiple Pixels *should* work but is untested. When more than one Pixel is enabled for a roll, the results will be displayed in sequence separated by a space. (e.g. ```Rolled: 5 2 4```)

@@ -76,6 +76,12 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         title.innerHTML = 'Roll20Pixels';
         container.appendChild(title);
 
+        const collapseBtn = document.createElement('button');
+        collapseBtn.className = 'collapseBtn';
+        collapseBtn.innerHTML = '&#x25BC;';
+        collapseBtn.title = 'Show Message Editor';
+        container.appendChild(collapseBtn);
+
         let offsetX, offsetY, isDown = false;
         title.addEventListener('mousedown', function(e) {
             isDown = true;
@@ -116,6 +122,37 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         diceList.id = 'diceList';
         diceList.className = 'collapsible-content show';
         blockDice.appendChild(diceList);
+
+        const messageBlock = document.createElement('div');
+        messageBlock.id = 'messageBlock';
+        messageBlock.className = 'dice collapsible-content';
+        messageBlock.classList.add('hide');
+        messageBlock.innerHTML = 'Custom Message';
+
+        const messageInput = document.createElement('input');
+        messageInput.id = 'customMessage';
+        messageInput.type = 'text';
+        messageInput.placeholder = 'ROLLED: ***%FACE%***';
+        messageInput.value = 'ROLLED: ***%FACE%***';
+        messageInput.style.width = '90%';
+        messageInput.style.margin = '8px 0';
+        messageBlock.appendChild(messageInput);
+
+        container.appendChild(messageBlock);
+
+        collapseBtn.addEventListener('click', () => {
+            if (messageBlock.classList.contains('hide')) {
+                collapseBtn.innerHTML = '&#x25B2;';
+                collapseBtn.title = 'Hide Message Editor';
+                messageBlock.classList.remove('hide');
+                messageBlock.classList.add('show');
+            } else {
+                collapseBtn.innerHTML = '&#x25BC;'; 
+                collapseBtn.title = 'Show Message Editor';
+                messageBlock.classList.remove('show');
+                messageBlock.classList.add('hide');
+            }
+        });
 
         container.style.left = (document.documentElement.clientWidth-300) + 'px';
         container.style.top = '100px';
@@ -291,7 +328,8 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
             logger("No enabled dice to post.");
             return;
         }
-        let message = `ROLLED: ${result.join(' ')}`;
+        const messageText = document.getElementById('customMessage');
+        let message = messageText.value.replace("%FACE%", result.join(' '));
         try {
             const chatArea = document.getElementById("textchat-input");
             const chatText = chatArea?.getElementsByTagName("textarea")[0];

@@ -9,12 +9,31 @@
     background-color: #222;
     margin: auto;
     padding: 5px 0px 5px 0px;
-    position:fixed; 
+    position: fixed; 
     top:600px; 
     left:600px; 
     z-index:9999; 
     border:3px solid #4CAF50;
     border-radius: 15px;
+}
+
+.pixelsFrame .collapseBtn {
+    z-index: 10;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    color: #4CAF50;
+}
+
+.pixelsFrame.collapsed {
+    height: 40px !important;
+    overflow: hidden;
 }
 
 .title {

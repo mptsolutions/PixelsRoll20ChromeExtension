@@ -27,9 +27,9 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
      */
     const PIXELS_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
     const PIXELS_NOTIFY_CHARACTERISTIC = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
-    // const PIXELS_WRITE_CHARACTERISTIC = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
+    const PIXELS_WRITE_CHARACTERISTIC = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase()
     const deviceSetup = { filters: [{ services: [PIXELS_SERVICE_UUID] }] };
-    const maxConnectionAttempts = 3;
+    const maxConnectionAttempts = 5;
 
     /*
      * Create an array to store the connected dice.
@@ -55,6 +55,14 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
     }
 
     /* 
+     * Helper function to convert a byte array to a hexadecimal string.
+     */
+    function uint32ToHexString(uint32) {
+        let uint32Array = [ (uint32 & 0xFF), ((uint32 >> 8) & 0xFF), ((uint32 >> 16) & 0xFF), ((uint32 >> 24) & 0xFF) ]
+        return uint32Array.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /* 
      * Function to create the UI for the extension.
      * This function creates the floating dialog that is injected into the Roll20 interface.
      */
@@ -62,9 +70,14 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         const container = document.createElement('div');
         container.setAttribute('class', 'pixelsFrame');
         chatArea.appendChild(container);
-        
+
+        const title = document.createElement('div');
+        title.className = 'title';
+        title.innerHTML = 'Roll20Pixels';
+        container.appendChild(title);
+
         let offsetX, offsetY, isDown = false;
-        container.addEventListener('mousedown', function(e) {
+        title.addEventListener('mousedown', function(e) {
             isDown = true;
             offsetX = e.clientX - container.offsetLeft;
             offsetY = e.clientY - container.offsetTop;
@@ -81,11 +94,6 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
             isDown = false;
             document.body.style.userSelect = '';
         });
-      
-        const title = document.createElement('div');
-        title.className = 'title';
-        title.innerHTML = 'Roll20Pixels';
-        container.appendChild(title);
 
         const connectDiceBtn = document.createElement('button');
         connectDiceBtn.className = 'connectButtons';
@@ -108,6 +116,11 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         diceList.id = 'diceList';
         diceList.className = 'collapsible-content show';
         blockDice.appendChild(diceList);
+
+        container.style.left = (document.documentElement.clientWidth-300) + 'px';
+        container.style.top = '100px';
+        logger('Moved PixelFrame to: ' + container.style.left + '/' + container.style.top);
+
     }
 
     /* 
@@ -138,12 +151,17 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
                 return;
             }
 
-            let server, notify;
+            let server, notify, write;
             const connect = async () => {
                 logger('Connecting to Pixel: ' + device.name);
                 server = await device.gatt.connect();
                 const service = await server.getPrimaryService(PIXELS_SERVICE_UUID);
                 notify = await service.getCharacteristic(PIXELS_NOTIFY_CHARACTERISTIC);
+                write = await service.getCharacteristic(PIXELS_WRITE_CHARACTERISTIC);
+                logger('Connected to Pixel: ' + device.name);
+                if (!notify || !write) {
+                    throw new Error('Required characteristics not found');
+                }
             };
 
             for (let i = maxConnectionAttempts - 1; i >= 0; --i) {
@@ -160,12 +178,14 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
                 }
             }
 
-            if (server && notify) {
+            if (server && notify && write) {
                 try {
                     logger('Starting Pixel notifications');
-                    const pixel = new Pixel(device.name, server);
+                    const pixel = new Pixel(device.name, server, write);
                     await notify.startNotifications();
                     notify.addEventListener('characteristicvaluechanged', ev => pixel.handleNotifications(ev));
+                    pixel.sendMessage(new Uint8Array([0x01]));
+                    pixel.animator.sparkleAnimation(null, 4000, 50);
                     pixels.push(pixel);
                 } catch (error) {
                     logger('Pixel notifications connection error: ' + error);
@@ -209,7 +229,8 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
             check.addEventListener('click', () => {
                 if (check.checked) { 
                     pixel.enabled = true;
-                    pixel.status = 'ready'; 
+                    pixel.status = 'ready';
+                    pixel.animator.sparkleAnimation(null, 4000, 50);
                 } 
                 else { 
                     pixel.enabled = false;
@@ -219,11 +240,22 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
             });
             diceElement.className = `dice ${pixel.status}`;
             diceElement.setAttribute("data-name", pixel.name);
+
             const spanA = document.createElement('span');
             spanA.textContent = pixel.name
+            spanA.addEventListener('click', () => {
+                pixel.animator.spinAnimation(0xFF0000);
+                logger("Clicked on Pixel: " + pixel.name);
+            });
+
             const spanB = document.createElement('span');
             spanB.className = 'face-value';
             spanB.textContent = pixel.faceValue || 'N/A';
+            spanB.addEventListener('click', () => {
+                pixel.animator.waveAnimation();
+                logger("Clicked on face value: " + (pixel.faceValue || 'N/A'));
+            });
+
             const btn = document.createElement('button');
             btn.className = 'connectedDiceSmall';
             btn.innerHTML = '&#10060;';
@@ -255,6 +287,10 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         pixels.forEach(pixel => {
             if (pixel.enabled) { result.push(pixel.lastFaceUp.toString()); }
         });
+        if (result.length == 0) {
+            logger("No enabled dice to post.");
+            return;
+        }
         let message = `ROLLED: ${result.join(' ')}`;
         try {
             const chatArea = document.getElementById("textchat-input");
@@ -292,17 +328,184 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         else { updateDiceStatus(); }
     };
 
+    class PixelAnimator {
+        constructor(pixel) {
+            this._pixel = pixel;
+            this._animation = null;
+            this._loops = 0;
+            this._isRunning = false;
+        }
+
+        get isRunning() { return this._isRunning; }
+        get animation() { return this._animation; }
+        
+        /*
+         * Function to set lights on the Pixel.
+         * @param {number} count - Number of blinks.
+         * @param {number} duration - Duration of the blink in milliseconds.
+         * @param {number} color - Color in 32 bits ARGB format (alpha value is ignored).
+         * @param {string} faceMask - Select which faces to light up (0000 0000 0000 0000 0000 0000 0000 0000).
+         * @param {number} fade - Amount of in and out fading (0-255).
+         * @param {number} loopCount - How many times this animation should play.
+         * This function sends a message to the Pixel to start blinking.
+         */
+        _setLights(count, duration, color, faceMask, fade, loopCount) {
+            faceMask = parseInt(faceMask.replace(/\s+/g, ''), 2);
+            let msg = [29 & 0xFF];              // Id	        1 byte	    Value: 29
+            msg.push(count & 0xFF);             // Count	    1 byte	    Number of blinks
+            msg.push(duration & 0xFF);          // Duration	    2 bytes	    Animation duration in milliseconds
+            msg.push((duration >> 8) & 0xFF);   // Color	    4 bytes	    Color in 32 bits ARGB format (alpha value is ignored)
+            msg.push(color & 0xFF); 
+            msg.push((color >> 8) & 0xFF); 
+            msg.push((color >> 16) & 0xFF); 
+            msg.push((color >> 24) & 0xFF); 
+            msg.push(faceMask & 0xFF);          // Face Mask	4 bytes	    Select which faces to light up
+            msg.push((faceMask >> 8) & 0xFF);
+            msg.push((faceMask >> 16) & 0xFF);
+            msg.push((faceMask >> 24) & 0xFF);
+            msg.push(fade);                     // Fade         1 byte	    Amount of in and out fading (*)
+            msg.push(loopCount);                // Loop Count	1 byte	    How many times this animation should play
+            this._pixel.sendMessage(new Uint8Array(msg));
+            logger(`Pixel ${this._pixel._name} is blinking.`);
+        }
+
+        async spinAnimation(color = 0x00FF00) {
+            if (this._isRunning) {
+                logger(`Animation ${this._animation} is already running on Pixel ${this._pixel.name}`);
+                return;
+            }
+            this._isRunning = true;
+            this._animation = "spinAnimation";
+            logger(`Starting ${this._animation} on Pixel ${this._pixel.name}`);
+
+            let leds = [
+                "0000 0000 0000 1000 0000 0000 0000 0000",
+                "0000 0000 0000 0000 0000 0000 0000 0010",
+                "0000 0000 0000 0010 0000 0000 0000 0000",
+                "0000 0000 0000 0000 0000 0000 0001 0000",
+                "0000 0000 0000 0000 0001 0000 0000 0000",
+                "0000 0000 0000 0000 0000 0000 0000 0001",
+                "0000 0000 0000 0100 0000 0000 0000 0000",
+                "0000 0000 0000 0000 0000 0000 0000 0100",
+                "0000 0000 0000 0000 1000 0000 0000 0000",
+                "0000 0000 0000 0000 0000 0000 1000 0000"
+            ]
+            for (let j = 0; j < 5; j++) {
+                for (let i = 0; i < 10; i++) {
+                    this._setLights(1, 500, color, leds[i], 0, 1);
+                    await new Promise((resolve) => setTimeout(() => resolve(), 100));
+                }
+            }
+            this.stopAnimation();
+        }
+
+        async pulseAnimation(color = 0x00FF00) {
+            if (this._isRunning) {
+                logger(`Animation ${this._animation} is already running on Pixel ${this._pixel.name}`);
+                return;
+            }
+            this._isRunning = true;
+            this._animation = "pulseAnimation";
+            logger(`Starting ${this._animation} on Pixel ${this._pixel.name}`);
+
+            let leds = "0000 0000 0000 1111 1111 1111 1111 1111";
+            this._setLights(1, 750, color, leds, 255, 5);
+            await new Promise((resolve) => setTimeout(() => resolve(), 3750));
+            this.stopAnimation();
+        }
+
+        sparkleAnimation(color = null, duration = 3000, interval = 100) {
+            if (this._isRunning) {
+                logger(`Animation ${this._animation} is already running on Pixel ${this._pixel.name}`);
+                return;
+            }
+            this._isRunning = true;
+            this._animation = "sparkleAnimation";
+            logger(`Starting ${this._animation} on Pixel ${this._pixel.name}`);
+
+            const totalLights = 20;
+            let lights = new Array(totalLights).fill(null);
+            let random_color = null;
+            let lightColors = [0xFF0000, 0x00FF00, 0x0000FF];
+            const sparkleInterval = setInterval(() => {
+                const lightsToChange = Math.floor(Math.random() * 5) + 1;
+                if (!color) { random_color = lightColors[Math.floor(Math.random() * lightColors.length)];
+                } else { random_color = color; }
+                for (let i = 0; i < lightsToChange; i++) {
+                    const id = Math.floor(Math.random() * totalLights);
+                    lights[id] = lights[id] ? null : random_color;
+                }
+                this._setLights(1, duration, random_color, lights.map(l => l ? '1' : '0').join(''), 0, 1);
+            }, interval);
+
+            setTimeout(() => {
+                clearInterval(sparkleInterval);
+                this.stopAnimation();
+            }, duration);
+        }
+
+        waveAnimation(duration = 3000, interval = 100) {
+            if (this._isRunning) {
+                logger(`Animation ${this._animation} is already running on Pixel ${this._pixel.name}`);
+                return;
+            }
+            this._isRunning = true;
+            this._animation = "waveAnimation";
+            logger(`Starting ${this._animation} on Pixel ${this._pixel.name}`);
+
+            const totalLights = 20;
+            const lightColors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF];
+            let lights = new Array(totalLights).fill(null);
+            let waveStart = 0;
+
+            const waveInterval = setInterval(() => {
+                // Clear all lights
+                lights.fill(null);
+
+                // Pick a color for this wave frame
+                const waveColor = lightColors[Math.floor(Math.random() * lightColors.length)];
+
+                // Light up a wave of 3 lights
+                for (let i = 0; i < 3; i++) {
+                    const pos = (waveStart + i) % totalLights;
+                    lights[pos] = waveColor;
+                }
+
+                // Advance the wave
+                waveStart = (waveStart + 1) % totalLights;
+
+                // Send the light pattern
+                this._setLights(1, duration, waveColor, lights.map(l => l ? '1' : '0').join(''), 0, 1);
+            }, interval);
+
+            setTimeout(() => {
+                clearInterval(waveInterval);
+                this.stopAnimation();
+            }, duration);
+        }
+
+        stopAnimation() {
+            logger(`Stopping ${this._animation} on Pixel ${this._pixel.name}`);
+            this._isRunning = false;
+            this._animation = null;
+        }
+
+    }
+
     /* 
      * Pixel class to represent a connected Pixel.
      */
     class Pixel {
-        constructor(name, server) {
+        constructor(name, server, writeCharacteristic) {
             this._name = name;
             this._server = server;
+            this._writeCharacteristic = writeCharacteristic;
             this._hasMoved = false;
             this._status = 'disabled';
             this._token = `#${name.replace(/\s+/g, '_').toLowerCase()}`;
             this._enabled = false;
+            this._info = {};
+            this._animator = new PixelAnimator(this);
         }
 
         get isConnected() { return this._server != null; }
@@ -315,11 +518,28 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
         set status(value) { this._status = value; }
         get enabled() { return this._enabled; }
         set enabled(value) { this._enabled = value; }
+        get animator() { return this._animator; }
 
         disconnect() {
-            this._server?.disconnect();
-            this._server = null;
+            this.animator.pulseAnimation(0xFF0000);
+            setTimeout(function() {
+                this._server?.disconnect();
+                this._server = null;
+            }, 5000);
             logger(`Pixel ${this._name} has been disconnected.`);
+        }
+
+        async sendMessage(bytes) {
+            if (!this._writeCharacteristic) {
+               logger(`Unable to send message to Pixel ${this._name}`);
+            return;
+        }
+            try {
+                await this._writeCharacteristic.writeValue(bytes);
+                logger(`Sent message to Pixel ${this._name}: ${Array.from(new Uint8Array(bytes.buffer)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
+            } catch (err) {
+                logger(`Failed to send message to Pixel ${this._name}: ${err}`);
+            }
         }
 
         handleNotifications(event) {
@@ -329,9 +549,45 @@ if (typeof window.roll20PixelsLoaded == 'undefined') {
                 arr.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
             }
 
-            if (value.getUint8(0) == 3) {
-                this._handleFaceEvent(value.getUint8(1), value.getUint8(2))
-            }
+            // IAmADie Message: https://github.com/GameWithPixels/.github/blob/main/doc/CommunicationsProtocol.md#iamadie
+            if (value.getUint8(0) == 2) { this._handleInfoEvent(value); }
+
+            // RollState Message: https://github.com/GameWithPixels/.github/blob/main/doc/CommunicationsProtocol.md#rollstate
+            else if (value.getUint8(0) == 3) { this._handleFaceEvent(value.getUint8(1), value.getUint8(2)); }
+
+            // BatteryLevel Message: https://github.com/GameWithPixels/.github/blob/main/doc/CommunicationsProtocol.md#batterylevel
+            else if (value.getUint8(0) == 34) { this._handleBatteryEvent(value); }
+        }
+
+        _handleInfoEvent(msg) {
+            // Get the Pixel information from the message.
+            this._info["ledCount"] = msg.getUint8(1);               //  1 Led Count	        1 byte	    Number of LEDs
+            this._info["designColour"] = msg.getUint8(2);           //  2 Design & Color	1 byte	    Physical look of the die
+            this._info["msg3"] = msg.getUint8(3);                   //  3 N/A	            1 byte
+            this._info["dataSetHash"] = msg.getUint32(4, true);     //  4 Data Set Hash	    4 bytes	    Internal
+            this._info["pixelId"] = msg.getUint32(8, true);         //  5 Pixel Id	        4 bytes	    Unique identifier
+            this._info["availableFlash"] = msg.getUint16(12, true); //  6 Available Flash	2 bytes	    Unique identifier
+            this._info["buildTimestamp"] = msg.getUint32(14, true); //  7 Build Timestamp	4 bytes	    Firmware build timestamp (UNIX)
+            this._info["rollState"] = msg.getUint8(18);             //  8 Roll State	    1 byte	    Current rolling state
+            this._info["currentFace"] = msg.getUint8(19);           //  9 Current Face	    1 byte	    Current face up (face index)
+            this._info["batLevel"] = msg.getUint8(20);              // 10 Battery Level	    1 byte	    Battery level in percentage
+            this._info["batState"] = msg.getUint8(21);              // 11 Battery State	    1 byte	    Battery state (charging or else)
+
+            // Convert the information to a more readable format.
+            this._info["dataSetHash"] = uint32ToHexString(this._info["dataSetHash"], 4);
+            this._info["pixelId"] = uint32ToHexString(this._info["pixelId"], 4);
+            let date = new Date(this._info["buildTimestamp"] * 1000);
+            this._info["buildTimestamp"] = date.toISOString().slice(0, 19);
+            this._info["currentFace"] = this._info["currentFace"] + 1;
+            this._info["batState"] = this._info["batState"] == 0 ? "Not Charging" : "Charging";
+            logger(`Received info for Pixel ${this._name} => ${JSON.stringify(this._info, null, 2)}`);
+        }
+
+        _handleBatteryEvent(msg) {
+            // Get the battery level and state from the message.
+            this._info["batLevel"] = msg.getUint8(1);
+            this._info["batState"] = msg.getUint8(2) == 0 ? "Not Charging" : "Charging";
+            logger(`Received battery info for Pixel ${this._name} => ${this._info["batLevel"]}% and ${this._info["batState"]}`);
         }
 
         _handleFaceEvent(eventId, face) {

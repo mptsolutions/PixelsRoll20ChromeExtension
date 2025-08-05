@@ -17,6 +17,9 @@
     },
     "action": {},
     "icons": {
-        "32": "images/d20.png"
+        "16": "/images/d20_disabled_16.png",
+        "32": "/images/d20_disabled_32.png",
+        "64": "/images/d20_disabled_64.png",
+        "128": "/images/d20_disabled_128.png"
     }
 }
